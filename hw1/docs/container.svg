@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1860" height="1000" viewBox="0 0 1860 1000" role="img" aria-labelledby="title desc">
+  <title id="title">C4 Container диаграмма маркетплейса</title>
+  <desc id="desc">Модульный монолит Marketplace API и отдельный Payments Service с разными базами данных. Покупатель и продавец используют Web App. Платежи взаимодействуют с банком; Marketplace API отправляет уведомления через почтового провайдера.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M1 1 L9 5 L1 9 Z" fill="#42566e"/>
+    </marker>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; fill: #15283f; }
+      .title { font-size: 31px; font-weight: 700; }
+      .subtitle { font-size: 17px; fill: #52667e; }
+      .boundary { fill: #fff; stroke: #a7b9cd; stroke-width: 2.5; stroke-dasharray: 10 7; }
+      .boundary-title { font-size: 21px; font-weight: 700; fill: #38516e; }
+      .actor { fill: #eaf2ff; stroke: #3973b7; stroke-width: 2.5; }
+      .container { fill: #e8f1ff; stroke: #3973b7; stroke-width: 2.5; }
+      .db { fill: #edf5ff; stroke: #3973b7; stroke-width: 2.5; }
+      .external { fill: #f1f3f6; stroke: #6c7d90; stroke-width: 2.5; }
+      .card-title { font-size: 22px; font-weight: 700; }
+      .card-type { font-size: 15px; fill: #49617d; }
+      .card-body { font-size: 17px; fill: #30445c; }
+      .edge { fill: none; stroke: #42566e; stroke-width: 2.6; marker-end: url(#arrow); }
+      .badge { fill: #fff; stroke: #42566e; stroke-width: 2; }
+      .badge-text { font-size: 17px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+      .legend-head { font-size: 21px; font-weight: 700; }
+      .legend { font-size: 17px; }
+    </style>
+  </defs>
+
+  <rect width="1860" height="1000" fill="#f8fafc"/>
+  <text x="60" y="60" class="title">Маркетплейс — C4 Container</text>
+  <text x="60" y="90" class="subtitle">Целевая архитектура: модульный монолит + отдельный сервис платежей</text>
+
+  <rect x="290" y="150" width="1240" height="620" rx="18" class="boundary"/>
+  <text x="320" y="187" class="boundary-title">Граница системы «Маркетплейс»</text>
+
+  <!-- Связи расположены под карточками; маршрут каждой линии задан явно. -->
+  <path d="M260 270 H310 V310 H340" class="edge"/>
+  <path d="M260 470 H310 V390 H340" class="edge"/>
+  <path d="M600 340 H735" class="edge"/>
+  <path d="M1035 315 H1190" class="edge"/>
+  <path d="M1190 385 H1035" class="edge"/>
+  <path d="M1490 315 H1590" class="edge"/>
+  <path d="M1590 385 H1490" class="edge"/>
+  <path d="M885 435 V565" class="edge"/>
+  <path d="M1340 435 V565" class="edge"/>
+  <path d="M735 415 H675 V705 H260" class="edge"/>
+
+  <rect x="40" y="210" width="220" height="120" rx="14" class="actor"/>
+  <text x="60" y="246" class="card-title">Покупатель</text>
+  <text x="60" y="274" class="card-type">Person</text>
+  <text x="60" y="305" class="card-body">Покупает товары</text>
+
+  <rect x="40" y="410" width="220" height="120" rx="14" class="actor"/>
+  <text x="60" y="446" class="card-title">Продавец</text>
+  <text x="60" y="474" class="card-type">Person</text>
+  <text x="60" y="505" class="card-body">Управляет товарами</text>
+
+  <rect x="340" y="265" width="260" height="170" rx="14" class="container"/>
+  <text x="360" y="302" class="card-title">Web App</text>
+  <text x="360" y="330" class="card-type">Container · браузер</text>
+  <text x="360" y="362" class="card-body">Лента, поиск, корзина</text>
+  <text x="360" y="388" class="card-body">и кабинет продавца</text>
+
+  <rect x="735" y="265" width="300" height="170" rx="14" class="container"/>
+  <text x="755" y="302" class="card-title">Marketplace API</text>
+  <text x="755" y="330" class="card-type">Container · FastAPI</text>
+  <text x="755" y="362" class="card-body">Модули Users, Catalog,</text>
+  <text x="755" y="388" class="card-body">Feed, Orders; уведомления</text>
+
+  <rect x="1190" y="265" width="300" height="170" rx="14" class="container"/>
+  <text x="1210" y="302" class="card-title">Payments Service</text>
+  <text x="1210" y="330" class="card-type">Container · отдельный сервис</text>
+  <text x="1210" y="362" class="card-body">Расчёт, проведение</text>
+  <text x="1210" y="388" class="card-body">и учёт платежей</text>
+
+  <rect x="740" y="565" width="290" height="130" rx="14" class="db"/>
+  <text x="760" y="602" class="card-title">Marketplace DB</text>
+  <text x="760" y="630" class="card-type">Container · реляционная БД</text>
+  <text x="760" y="662" class="card-body">Таблицы модулей API</text>
+
+  <rect x="1195" y="565" width="290" height="130" rx="14" class="db"/>
+  <text x="1215" y="602" class="card-title">Payments DB</text>
+  <text x="1215" y="630" class="card-type">Container · реляционная БД</text>
+  <text x="1215" y="662" class="card-body">Попытки и учёт</text>
+
+  <rect x="1590" y="265" width="240" height="170" rx="14" class="external"/>
+  <text x="1610" y="302" class="card-title">Банк</text>
+  <text x="1610" y="330" class="card-type">External system</text>
+  <text x="1610" y="362" class="card-body">Проводит платёж</text>
+  <text x="1610" y="388" class="card-body">и сообщает итог</text>
+
+  <rect x="40" y="645" width="220" height="125" rx="14" class="external"/>
+  <text x="60" y="681" class="card-title">Почтовый</text>
+  <text x="60" y="707" class="card-title">провайдер</text>
+  <text x="60" y="737" class="card-type">External system</text>
+
+  <g><circle cx="310" cy="270" r="17" class="badge"/><text x="310" y="270" class="badge-text">1</text></g>
+  <g><circle cx="310" cy="470" r="17" class="badge"/><text x="310" y="470" class="badge-text">2</text></g>
+  <g><circle cx="668" cy="340" r="17" class="badge"/><text x="668" y="340" class="badge-text">3</text></g>
+  <g><circle cx="1112" cy="315" r="17" class="badge"/><text x="1112" y="315" class="badge-text">4</text></g>
+  <g><circle cx="1112" cy="385" r="17" class="badge"/><text x="1112" y="385" class="badge-text">5</text></g>
+  <g><circle cx="1540" cy="315" r="17" class="badge"/><text x="1540" y="315" class="badge-text">6</text></g>
+  <g><circle cx="1540" cy="385" r="17" class="badge"/><text x="1540" y="385" class="badge-text">7</text></g>
+  <g><circle cx="885" cy="500" r="17" class="badge"/><text x="885" y="500" class="badge-text">8</text></g>
+  <g><circle cx="1340" cy="500" r="17" class="badge"/><text x="1340" y="500" class="badge-text">9</text></g>
+  <g><circle cx="485" cy="705" r="19" class="badge"/><text x="485" y="705" class="badge-text">10</text></g>
+
+  <text x="60" y="815" class="legend-head">Связи</text>
+  <text x="60" y="845" class="legend">1  Покупатель -> Web App: лента, заказ, оплата · HTTPS</text>
+  <text x="60" y="872" class="legend">2  Продавец -> Web App: управление товарами · HTTPS</text>
+  <text x="60" y="899" class="legend">3  Web App -> Marketplace API: запросы · HTTPS, до ответа</text>
+  <text x="60" y="926" class="legend">4  API -> Payments: подготовка/начало платежа · HTTPS, до ответа</text>
+  <text x="60" y="953" class="legend">5  Payments -> API: итог попытки · callback, после ответа</text>
+
+  <text x="970" y="845" class="legend">6  Payments -> банк: инициировать платёж · API</text>
+  <text x="970" y="872" class="legend">7  Банк -> Payments: результат · callback</text>
+  <text x="970" y="899" class="legend">8  API -> Marketplace DB: данные модулей · SQL</text>
+  <text x="970" y="926" class="legend">9  Payments -> Payments DB: учёт платежей · SQL</text>
+  <text x="970" y="953" class="legend">10  API -> почта: статус заказа · API провайдера</text>
+</svg>
