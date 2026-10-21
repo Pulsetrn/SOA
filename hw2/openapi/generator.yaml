@@ -1,0 +1,10 @@
+generatorName: python-fastapi
+inputSpec: openapi/openapi.yaml
+outputDir: generated
+templateDir: openapi/templates
+additionalProperties:
+  packageName: marketplace_api
+  fastapiImplementationPackage: app.handlers
+  useExternalImplementationPackage: true
+  disallowAdditionalPropertiesIfNotPresent: true
+  hideGenerationTimestamp: true

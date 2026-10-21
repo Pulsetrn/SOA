@@ -1,0 +1,79 @@
+# coding: utf-8
+
+from typing import Dict, List  # noqa: F401
+import importlib
+import pkgutil
+from app.http import ContractRoute, contract_response
+from app.models import User
+from app.security import require_roles
+
+from {{apiPackage}}.{{classFilename}}_{{baseSuffix}} import Base{{classname}}
+import {{fastapiImplementationPackage}}
+
+from fastapi import (  # noqa: F401
+    APIRouter,
+    Body,
+    Cookie,
+    Depends,
+    Form,
+    Header,
+    HTTPException,
+    Path,
+    Query,
+    Response,
+    Request,
+    Security,
+    status,
+)
+
+{{#imports}}
+{{import}}
+{{/imports}}
+
+
+router = APIRouter(route_class=ContractRoute)
+
+ns_pkg = {{fastapiImplementationPackage}}
+for _, name, _ in pkgutil.iter_modules(ns_pkg.__path__, ns_pkg.__name__ + "."):
+    importlib.import_module(name)
+
+
+{{#operations}}
+{{#operation}}
+@router.{{#lambda.lowercase}}{{httpMethod}}{{/lambda.lowercase}}(
+    "{{{path}}}",
+    responses={
+        {{#responses}}
+        {{#isDefault}}"default"{{/isDefault}}{{^isDefault}}{{code}}{{/isDefault}}: {{=<% %>=}}{<%#dataType%>"model": <%dataType%>, "description": "<%message%>"<%/dataType%><%^dataType%>"description": "<%message%>"<%/dataType%>}<%={{ }}=%>,
+        {{/responses}}
+    },
+    tags=[{{#tags}}"{{name}}"{{^-last}},{{/-last}}{{/tags}}],
+    {{#summary}}
+    summary="{{.}}",
+    {{/summary}}
+    {{#description}}
+    description = "{{.}}",
+    {{/description}}
+    response_model_by_alias=True,
+    {{#responses}}{{#is2xx}}status_code={{code}},{{/is2xx}}{{/responses}}
+)
+async def {{operationId}}(
+    {{#vendorExtensions.x-request-context}}request: Request,{{/vendorExtensions.x-request-context}}
+    {{#allParams}}
+    {{>endpoint_argument_definition}},
+    {{/allParams}}
+    {{#hasAuthMethods}}
+    current_user: User = Depends(require_roles({{#vendorExtensions.x-roles}}"{{.}}", {{/vendorExtensions.x-roles}})),
+    {{/hasAuthMethods}}
+) -> {{returnType}}{{^returnType}}None{{/returnType}}:
+    {{#notes}}"""{{.}}"""
+    {{/notes}}if not Base{{classname}}.subclasses:
+        raise HTTPException(status_code=500, detail="Not implemented")
+    result = await Base{{classname}}.subclasses[0]({{#vendorExtensions.x-request-context}}request=request, {{/vendorExtensions.x-request-context}}{{#hasAuthMethods}}current_user=current_user{{/hasAuthMethods}}).{{operationId}}({{#allParams}}{{>impl_argument}}{{^-last}}, {{/-last}}{{/allParams}})
+    return contract_response(result, {{returnType}}{{^returnType}}type(None){{/returnType}}, {{#responses}}{{#is2xx}}{{code}}{{/is2xx}}{{/responses}})
+{{^-last}}
+
+
+{{/-last}}
+{{/operation}}
+{{/operations}}

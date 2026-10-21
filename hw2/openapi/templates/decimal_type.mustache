@@ -1,0 +1,17 @@
+Annotated[
+        Decimal,
+        BeforeValidator(require_number),
+        Field(
+            allow_inf_nan=False,
+            alias="{{baseName}}",
+{{#minimum}}
+            {{#exclusiveMinimum}}gt{{/exclusiveMinimum}}{{^exclusiveMinimum}}ge{{/exclusiveMinimum}}=Decimal("{{minimum}}"),
+{{/minimum}}
+{{#maximum}}
+            {{#exclusiveMaximum}}lt{{/exclusiveMaximum}}{{^exclusiveMaximum}}le{{/exclusiveMaximum}}=Decimal("{{maximum}}"),
+{{/maximum}}
+{{#multipleOf}}
+            multiple_of=Decimal("{{multipleOf}}"),
+{{/multipleOf}}
+        ),
+    ]
