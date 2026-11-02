@@ -1,6 +1,15 @@
 name: flights-hw3
 
 services:
+  redis:
+    image: redis:7.4.2-alpine
+    command: [redis-server, --save, '', --appendonly, 'no']
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
   flight-db:
     image: postgres:17.6
     environment:
@@ -35,6 +44,8 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://flight:${FLIGHT_DB_PASSWORD:-flight_local}@flight-db:5432/flight
       FLIGHT_API_KEY: ${FLIGHT_API_KEY:?Set FLIGHT_API_KEY in hw3/.env}
+      REDIS_URL: redis://redis:6379/0
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-300}
     ports:
       - '127.0.0.1:${FLIGHT_GRPC_PORT:-50051}:50051'
     depends_on:

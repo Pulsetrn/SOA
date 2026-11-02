@@ -59,8 +59,9 @@ async def lock_booking(session, booking_id):
 
 
 class FlightService(rpc.FlightServiceServicer):
-    def __init__(self, database):
+    def __init__(self, database, cache):
         self.database = database
+        self.cache = cache
 
     async def SearchFlights(self, request, context):
         if not all(
@@ -98,22 +99,39 @@ class FlightService(rpc.FlightServiceServicer):
             query = query.where(
                 Flight.departure_time >= start, Flight.departure_time < end
             )
+        date_key = (
+            start.date().isoformat() if request.HasField("departure_date") else "all"
+        )
+        key = self.cache.key(
+            f"search:{request.origin}:{request.destination}:{date_key}"
+        )
+        cached = await self.cache.get(key, pb.SearchFlightsResponse)
+        if cached is not None:
+            return cached
         async with self.database.sessions() as session:
             rows = (
                 await session.scalars(query.order_by(Flight.departure_time, Flight.id))
             ).all()
-            return pb.SearchFlightsResponse(
+            result = pb.SearchFlightsResponse(
                 flights=[flight_message(row) for row in rows]
             )
+        await self.cache.put(key, result)
+        return result
 
     async def GetFlight(self, request, context):
         try:
             flight_id = uuid_value(request.flight_id)
+            key = self.cache.key(f"flight:{flight_id}")
+            cached = await self.cache.get(key, pb.Flight)
+            if cached is not None:
+                return cached
             async with self.database.sessions() as session:
                 row = await session.get(Flight, flight_id)
                 if row is None:
                     raise BusinessError(grpc.StatusCode.NOT_FOUND, "Flight not found")
-                return flight_message(row)
+                result = flight_message(row)
+            await self.cache.put(key, result)
+            return result
         except BusinessError as error:
             await context.abort(error.code, error.message)
 
@@ -175,6 +193,7 @@ class FlightService(rpc.FlightServiceServicer):
                 session.add(reservation)
                 await session.flush()
                 result = reservation_message(reservation)
+            self.cache.invalidate()
             return result
         except BusinessError as error:
             await context.abort(error.code, error.message)
@@ -182,6 +201,7 @@ class FlightService(rpc.FlightServiceServicer):
     async def ReleaseReservation(self, request, context):
         try:
             booking_id = uuid_value(request.booking_id)
+            changed = False
             async with self.database.sessions() as session, session.begin():
                 await lock_booking(session, booking_id)
                 if await session.get(ReleasedBooking, booking_id) is not None:
@@ -197,7 +217,10 @@ class FlightService(rpc.FlightServiceServicer):
                     )
                     flight.available_seats += reservation.seat_count
                     reservation.status = "RELEASED"
+                    changed = True
                 session.add(ReleasedBooking(booking_id=booking_id))
+            if changed:
+                self.cache.invalidate()
             return Empty()
         except BusinessError as error:
             await context.abort(error.code, error.message)

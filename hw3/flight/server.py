@@ -8,11 +8,13 @@ import grpc
 from common.database import Database
 
 from flight.auth import ApiKeyInterceptor
+from flight.cache import FlightCache
 from flight.service import FlightService
 
 
 async def serve():
     interceptor = ApiKeyInterceptor(os.getenv("FLIGHT_API_KEY", ""))
+    cache = FlightCache()
     database = Database()
     server = grpc.aio.server(interceptors=[interceptor])
     stopped = asyncio.Event()
@@ -21,8 +23,9 @@ async def serve():
         loop.add_signal_handler(sig, stopped.set)
     try:
         await database.check()
+        await cache.check()
         flight_pb2_grpc.add_FlightServiceServicer_to_server(
-            FlightService(database), server
+            FlightService(database, cache), server
         )
         port = server.add_insecure_port(os.getenv("GRPC_LISTEN", "[::]:50051"))
         if not port:
@@ -32,6 +35,7 @@ async def serve():
         await stopped.wait()
     finally:
         await server.stop(5)
+        await cache.close()
         await database.close()
 
 

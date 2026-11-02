@@ -6,3 +6,4 @@ SQLAlchemy[asyncio]==2.0.43
 psycopg[binary]==3.2.9
 alembic==1.16.5
 email-validator==2.3.0
+redis==5.2.1

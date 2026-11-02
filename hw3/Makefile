@@ -14,3 +14,4 @@ down:
 
 seed:
 	docker compose exec -T flight python -m flight.seed
+	docker compose restart flight
