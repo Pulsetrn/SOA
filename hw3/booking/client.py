@@ -1,3 +1,4 @@
+import asyncio
 import os
 from datetime import datetime, time, timezone
 from decimal import Decimal
@@ -39,11 +40,24 @@ class FlightClient:
         )
         self.stub = rpc.FlightServiceStub(self.channel)
 
+    async def _call(self, method, request):
+        for attempt in range(3):
+            try:
+                return await method(
+                    request, timeout=self.timeout, metadata=self.metadata
+                )
+            except grpc.aio.AioRpcError as error:
+                if attempt == 2 or error.code() not in (
+                    grpc.StatusCode.UNAVAILABLE,
+                    grpc.StatusCode.DEADLINE_EXCEEDED,
+                ):
+                    raise
+                await asyncio.sleep(0.1 * 2**attempt)
+
     async def get(self, flight_id):
-        return await self.stub.GetFlight(
+        return await self._call(
+            self.stub.GetFlight,
             pb.GetFlightRequest(flight_id=str(flight_id)),
-            timeout=self.timeout,
-            metadata=self.metadata,
         )
 
     async def search(self, origin, destination, date):
@@ -52,26 +66,22 @@ class FlightClient:
             request.departure_date.FromDatetime(
                 datetime.combine(date, time.min, tzinfo=timezone.utc)
             )
-        return await self.stub.SearchFlights(
-            request, timeout=self.timeout, metadata=self.metadata
-        )
+        return await self._call(self.stub.SearchFlights, request)
 
     async def reserve(self, flight_id, seat_count, booking_id):
-        return await self.stub.ReserveSeats(
+        return await self._call(
+            self.stub.ReserveSeats,
             pb.ReserveSeatsRequest(
                 flight_id=str(flight_id),
                 seat_count=seat_count,
                 booking_id=str(booking_id),
             ),
-            timeout=self.timeout,
-            metadata=self.metadata,
         )
 
     async def release(self, booking_id):
-        return await self.stub.ReleaseReservation(
+        return await self._call(
+            self.stub.ReleaseReservation,
             pb.ReleaseReservationRequest(booking_id=str(booking_id)),
-            timeout=self.timeout,
-            metadata=self.metadata,
         )
 
     async def close(self):
