@@ -34,6 +34,7 @@ services:
     command: [sh, -c, 'alembic -c flight/alembic.ini upgrade head && exec python -m flight.server']
     environment:
       DATABASE_URL: postgresql+psycopg://flight:${FLIGHT_DB_PASSWORD:-flight_local}@flight-db:5432/flight
+      FLIGHT_API_KEY: ${FLIGHT_API_KEY:?Set FLIGHT_API_KEY in hw3/.env}
     ports:
       - '127.0.0.1:${FLIGHT_GRPC_PORT:-50051}:50051'
     depends_on:
@@ -52,6 +53,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://booking:${BOOKING_DB_PASSWORD:-booking_local}@booking-db:5432/booking
       FLIGHT_TARGET: flight:50051
+      FLIGHT_API_KEY: ${FLIGHT_API_KEY:?Set FLIGHT_API_KEY in hw3/.env}
       GRPC_TIMEOUT_SECONDS: ${GRPC_TIMEOUT_SECONDS:-3}
     ports:
       - '127.0.0.1:${BOOKING_HTTP_PORT:-8003}:8000'

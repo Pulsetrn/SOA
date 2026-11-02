@@ -12,7 +12,9 @@ async def check():
     ) as channel:
         stub = flight_pb2_grpc.FlightServiceStub(channel)
         await stub.SearchFlights(
-            flight_pb2.SearchFlightsRequest(origin="SVO", destination="LED"), timeout=2
+            flight_pb2.SearchFlightsRequest(origin="SVO", destination="LED"),
+            timeout=2,
+            metadata=(("x-api-key", os.environ["FLIGHT_API_KEY"]),),
         )
 
 

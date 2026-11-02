@@ -7,12 +7,14 @@ import flight_pb2_grpc
 import grpc
 from common.database import Database
 
+from flight.auth import ApiKeyInterceptor
 from flight.service import FlightService
 
 
 async def serve():
+    interceptor = ApiKeyInterceptor(os.getenv("FLIGHT_API_KEY", ""))
     database = Database()
-    server = grpc.aio.server()
+    server = grpc.aio.server(interceptors=[interceptor])
     stopped = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):

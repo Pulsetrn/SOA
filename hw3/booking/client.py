@@ -27,6 +27,10 @@ def flight_response(message):
 
 class FlightClient:
     def __init__(self):
+        api_key = os.getenv("FLIGHT_API_KEY", "")
+        if not api_key or any(not 33 <= ord(char) <= 126 for char in api_key):
+            raise ValueError("FLIGHT_API_KEY must be a non-empty printable ASCII token")
+        self.metadata = (("x-api-key", api_key),)
         self.timeout = float(os.getenv("GRPC_TIMEOUT_SECONDS", "3"))
         if self.timeout <= 0:
             raise ValueError("GRPC_TIMEOUT_SECONDS must be positive")
@@ -37,7 +41,9 @@ class FlightClient:
 
     async def get(self, flight_id):
         return await self.stub.GetFlight(
-            pb.GetFlightRequest(flight_id=str(flight_id)), timeout=self.timeout
+            pb.GetFlightRequest(flight_id=str(flight_id)),
+            timeout=self.timeout,
+            metadata=self.metadata,
         )
 
     async def search(self, origin, destination, date):
@@ -46,7 +52,9 @@ class FlightClient:
             request.departure_date.FromDatetime(
                 datetime.combine(date, time.min, tzinfo=timezone.utc)
             )
-        return await self.stub.SearchFlights(request, timeout=self.timeout)
+        return await self.stub.SearchFlights(
+            request, timeout=self.timeout, metadata=self.metadata
+        )
 
     async def reserve(self, flight_id, seat_count, booking_id):
         return await self.stub.ReserveSeats(
@@ -56,12 +64,14 @@ class FlightClient:
                 booking_id=str(booking_id),
             ),
             timeout=self.timeout,
+            metadata=self.metadata,
         )
 
     async def release(self, booking_id):
         return await self.stub.ReleaseReservation(
             pb.ReleaseReservationRequest(booking_id=str(booking_id)),
             timeout=self.timeout,
+            metadata=self.metadata,
         )
 
     async def close(self):
