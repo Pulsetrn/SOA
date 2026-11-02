@@ -1,0 +1,14 @@
+*
+!Dockerfile
+!requirements.txt
+!requirements-codegen.txt
+!proto/
+!proto/**
+!common/
+!common/**
+!flight/
+!flight/**
+!booking/
+!booking/**
+**/__pycache__/
+**/*.pyc

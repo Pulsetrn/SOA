@@ -1,0 +1,31 @@
+Project booking_service {
+  database_type: 'PostgreSQL'
+}
+
+Enum booking_status {
+  CONFIRMED
+  CANCELLED
+}
+
+Table bookings {
+  id uuid [pk, not null]
+  user_id uuid [not null]
+  flight_id uuid [not null]
+  passenger_name varchar(255) [not null]
+  passenger_email varchar(254) [not null]
+  seat_count integer [not null]
+  total_price numeric(12,2) [not null]
+  status booking_status [not null, default: 'CONFIRMED']
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `length(btrim(passenger_name)) > 0` [name: 'ck_bookings_passenger_name']
+    `length(btrim(passenger_email)) > 0` [name: 'ck_bookings_passenger_email']
+    `seat_count > 0` [name: 'ck_bookings_seat_count']
+    `total_price > 0 AND total_price <> 'NaN'::numeric` [name: 'ck_bookings_total_price']
+  }
+
+  indexes {
+    (user_id, created_at, id) [name: 'ix_bookings_user']
+  }
+}

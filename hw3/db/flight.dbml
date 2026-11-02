@@ -1,0 +1,71 @@
+Project flight_service {
+  database_type: 'PostgreSQL'
+}
+
+Enum flight_status {
+  SCHEDULED
+  DEPARTED
+  CANCELLED
+  COMPLETED
+}
+
+Enum reservation_status {
+  ACTIVE
+  RELEASED
+  EXPIRED
+}
+
+Table flights {
+  id uuid [pk, not null]
+  flight_number varchar(16) [not null]
+  airline varchar(255) [not null]
+  origin varchar(3) [not null]
+  destination varchar(3) [not null]
+  departure_time timestamptz [not null]
+  arrival_time timestamptz [not null]
+  total_seats integer [not null]
+  available_seats integer [not null]
+  price numeric(12,2) [not null]
+  status flight_status [not null, default: 'SCHEDULED']
+
+  checks {
+    `length(btrim(flight_number)) > 0` [name: 'ck_flights_number']
+    `length(btrim(airline)) > 0` [name: 'ck_flights_airline']
+    `origin ~ '^[A-Z]{3}$'` [name: 'ck_flights_origin']
+    `destination ~ '^[A-Z]{3}$'` [name: 'ck_flights_destination']
+    `origin <> destination` [name: 'ck_flights_route']
+    `arrival_time > departure_time` [name: 'ck_flights_times']
+    `total_seats > 0` [name: 'ck_flights_total_seats']
+    `available_seats >= 0 AND available_seats <= total_seats` [name: 'ck_flights_available_seats']
+    `price > 0 AND price <> 'NaN'::numeric` [name: 'ck_flights_price']
+  }
+
+  indexes {
+    (flight_number, `((departure_time AT TIME ZONE 'UTC')::date)`) [unique, name: 'uq_flights_number_departure_date']
+    (origin, destination, status, departure_time, id) [name: 'ix_flights_search']
+  }
+}
+
+Table seat_reservations {
+  id uuid [pk, not null]
+  flight_id uuid [not null]
+  booking_id uuid [not null, unique]
+  seat_count integer [not null]
+  status reservation_status [not null, default: 'ACTIVE']
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `seat_count > 0` [name: 'ck_reservations_seat_count']
+  }
+
+  indexes {
+    flight_id [name: 'ix_reservations_flight']
+  }
+}
+
+Ref: seat_reservations.flight_id > flights.id [delete: restrict]
+
+Table released_booking_ids {
+  booking_id uuid [pk, not null]
+  created_at timestamptz [not null, default: `now()`]
+}
