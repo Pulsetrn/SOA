@@ -1,5 +1,6 @@
 import re
 from datetime import timedelta, timezone
+from decimal import Decimal
 from uuid import UUID
 
 import flight_pb2 as pb
@@ -131,6 +132,46 @@ class FlightService(rpc.FlightServiceServicer):
                     raise BusinessError(grpc.StatusCode.NOT_FOUND, "Flight not found")
                 result = flight_message(row)
             await self.cache.put(key, result)
+            return result
+        except BusinessError as error:
+            await context.abort(error.code, error.message)
+
+    async def UpdateFlight(self, request, context):
+        try:
+            flight_id = uuid_value(request.flight_id)
+            if not (request.HasField("price_minor") or request.HasField("status")):
+                raise BusinessError(
+                    grpc.StatusCode.INVALID_ARGUMENT, "Expected price_minor or status"
+                )
+            if request.HasField("price_minor") and not (
+                0 < request.price_minor <= 999999999999
+            ):
+                raise BusinessError(
+                    grpc.StatusCode.INVALID_ARGUMENT,
+                    "price_minor must be between 1 and 999999999999",
+                )
+            if request.HasField("status") and request.status not in (
+                pb.FLIGHT_STATUS_SCHEDULED,
+                pb.FLIGHT_STATUS_DEPARTED,
+                pb.FLIGHT_STATUS_CANCELLED,
+                pb.FLIGHT_STATUS_COMPLETED,
+            ):
+                raise BusinessError(
+                    grpc.StatusCode.INVALID_ARGUMENT, "Expected a valid flight status"
+                )
+            async with self.database.sessions() as session, session.begin():
+                flight = await session.get(Flight, flight_id, with_for_update=True)
+                if flight is None:
+                    raise BusinessError(grpc.StatusCode.NOT_FOUND, "Flight not found")
+                if request.HasField("price_minor"):
+                    flight.price = Decimal(request.price_minor) / 100
+                if request.HasField("status"):
+                    flight.status = pb.FlightStatus.Name(request.status).removeprefix(
+                        "FLIGHT_STATUS_"
+                    )
+                await session.flush()
+                result = flight_message(flight)
+            self.cache.invalidate()
             return result
         except BusinessError as error:
             await context.abort(error.code, error.message)
