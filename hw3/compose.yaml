@@ -88,7 +88,8 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://flight:${FLIGHT_DB_PASSWORD:-flight_local}@flight-db:5432/flight
       FLIGHT_API_KEY: ${FLIGHT_API_KEY:?Set FLIGHT_API_KEY in hw3/.env}
-      REDIS_URL: redis://redis:6379/0
+      REDIS_SENTINELS: sentinel-1:26379,sentinel-2:26379,sentinel-3:26379
+      REDIS_MASTER_NAME: flight-cache
       CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-300}
     ports:
       - '127.0.0.1:${FLIGHT_GRPC_PORT:-50051}:50051'

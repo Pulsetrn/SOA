@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from google.protobuf.message import DecodeError
 from redis.asyncio import Redis
+from redis.asyncio.sentinel import Sentinel
 from redis.exceptions import RedisError
 
 logger = logging.getLogger(__name__)
@@ -18,17 +19,35 @@ class FlightCache:
         )
         if not 300 <= self.ttl <= 600:
             raise ValueError("CACHE_TTL_SECONDS must be between 300 and 600")
-        self.client = (
-            client
-            if client is not None
-            else Redis.from_url(
-                os.getenv("REDIS_URL", "redis://localhost:6379/0"),
-                socket_connect_timeout=0.3,
-                socket_timeout=0.3,
-                decode_responses=False,
-            )
-        )
+        self.sentinel = None
+        self.client = client
+        if self.client is None:
+            self.client = self._connect()
         self._generation = uuid4().hex
+
+    def _connect(self):
+        options = dict(socket_connect_timeout=0.3, socket_timeout=0.3)
+        addresses = os.getenv("REDIS_SENTINELS")
+        if not addresses:
+            return Redis.from_url(
+                os.getenv("REDIS_URL", "redis://localhost:6379/0"),
+                **options,
+            )
+        endpoints = []
+        for address in addresses.split(","):
+            host, separator, port = address.strip().rpartition(":")
+            if (
+                not separator
+                or not host
+                or not port.isdecimal()
+                or not 0 < int(port) < 65536
+            ):
+                raise ValueError(
+                    "REDIS_SENTINELS must contain comma-separated host:port entries"
+                )
+            endpoints.append((host, int(port)))
+        self.sentinel = Sentinel(endpoints, sentinel_kwargs=options, **options)
+        return self.sentinel.master_for(os.getenv("REDIS_MASTER_NAME", "flight-cache"))
 
     def key(self, suffix):
         return f"flight-service:{self._generation}:{suffix}"
@@ -64,3 +83,6 @@ class FlightCache:
 
     async def close(self):
         await self.client.aclose()
+        if self.sentinel is not None:
+            for client in self.sentinel.sentinels:
+                await client.aclose()
