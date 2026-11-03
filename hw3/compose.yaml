@@ -1,14 +1,58 @@
 name: flights-hw3
 
+x-sentinel: &sentinel
+  image: redis:7.4.2-alpine
+  command: [sh, /etc/redis/start-sentinel.sh]
+  depends_on:
+    redis:
+      condition: service_healthy
+    redis-replica:
+      condition: service_healthy
+  healthcheck:
+    test: [CMD, redis-cli, -e, -p, '26379', SENTINEL, CKQUORUM, flight-cache]
+    interval: 2s
+    timeout: 3s
+    retries: 20
+
 services:
   redis:
     image: redis:7.4.2-alpine
-    command: [redis-server, --save, '', --appendonly, 'no']
+    command: [redis-server, --save, '', --appendonly, 'no', --replica-announce-ip, redis]
     healthcheck:
       test: [CMD, redis-cli, ping]
       interval: 2s
       timeout: 3s
       retries: 20
+
+  redis-replica:
+    image: redis:7.4.2-alpine
+    command: [redis-server, --save, '', --appendonly, 'no', --replicaof, redis, '6379', --replica-announce-ip, redis-replica]
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  sentinel-1:
+    <<: *sentinel
+    volumes:
+      - ./redis:/etc/redis:ro
+      - sentinel-1-data:/data
+
+  sentinel-2:
+    <<: *sentinel
+    volumes:
+      - ./redis:/etc/redis:ro
+      - sentinel-2-data:/data
+
+  sentinel-3:
+    <<: *sentinel
+    volumes:
+      - ./redis:/etc/redis:ro
+      - sentinel-3-data:/data
 
   flight-db:
     image: postgres:17.6
@@ -81,5 +125,8 @@ services:
       start_period: 10s
 
 volumes:
+  sentinel-1-data:
+  sentinel-2-data:
+  sentinel-3-data:
   flight-data:
   booking-data:
