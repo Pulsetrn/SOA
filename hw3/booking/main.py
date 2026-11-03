@@ -29,6 +29,7 @@ class ApiError(Exception):
 
 @asynccontextmanager
 async def lifespan(app):
+    logging.basicConfig(level=logging.INFO)
     database = Database()
     client = FlightClient()
     app.state.database = database

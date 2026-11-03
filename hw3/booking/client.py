@@ -1,4 +1,3 @@
-import asyncio
 import os
 from datetime import datetime, time, timezone
 from decimal import Decimal
@@ -7,6 +6,7 @@ import flight_pb2 as pb
 import flight_pb2_grpc as rpc
 import grpc
 
+from booking.flight_interceptor import FlightInterceptor
 from booking.schemas import FlightResponse
 
 
@@ -36,23 +36,13 @@ class FlightClient:
         if self.timeout <= 0:
             raise ValueError("GRPC_TIMEOUT_SECONDS must be positive")
         self.channel = grpc.aio.insecure_channel(
-            os.getenv("FLIGHT_TARGET", "localhost:50051")
+            os.getenv("FLIGHT_TARGET", "localhost:50051"),
+            interceptors=[FlightInterceptor()],
         )
         self.stub = rpc.FlightServiceStub(self.channel)
 
     async def _call(self, method, request):
-        for attempt in range(3):
-            try:
-                return await method(
-                    request, timeout=self.timeout, metadata=self.metadata
-                )
-            except grpc.aio.AioRpcError as error:
-                if attempt == 2 or error.code() not in (
-                    grpc.StatusCode.UNAVAILABLE,
-                    grpc.StatusCode.DEADLINE_EXCEEDED,
-                ):
-                    raise
-                await asyncio.sleep(0.1 * 2**attempt)
+        return await method(request, timeout=self.timeout, metadata=self.metadata)
 
     async def get(self, flight_id):
         return await self._call(
