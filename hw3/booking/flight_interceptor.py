@@ -5,6 +5,7 @@ import grpc
 
 from booking.circuit_breaker import CircuitBreaker
 
+RELEASE_RESERVATION = b"/flight.v1.FlightService/ReleaseReservation"
 RETRYABLE_CODES = (
     grpc.StatusCode.UNAVAILABLE,
     grpc.StatusCode.DEADLINE_EXCEEDED,
@@ -20,6 +21,11 @@ class FlightInterceptor(grpc.aio.UnaryUnaryClientInterceptor):
         )
 
     async def intercept_unary_unary(self, continuation, client_call_details, request):
+        if client_call_details.method == RELEASE_RESERVATION:
+            return await self._call(
+                continuation, client_call_details, request, attempts=3
+            )
+
         permit = self.breaker.acquire()
         if permit is None:
             raise grpc.aio.AioRpcError(
