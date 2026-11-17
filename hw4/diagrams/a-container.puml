@@ -1,0 +1,41 @@
+@startuml
+!pragma layout smetana
+!include <C4/C4_Container>
+LAYOUT_TOP_DOWN()
+skinparam nodesep 70
+skinparam ranksep 80
+skinparam shadowing false
+title Вариант A — C4 Container: собственный оркестратор
+System_Ext(source, "Сервисы банка", "Операция и source outbox")
+System_Ext(policy, "Настройки и контакты", "Control plane платформы")
+System_Ext(channels, "Провайдеры каналов", "FCM/APNs · SMS · SES")
+System_Ext(client, "Клиентские приложения и каналы", "Приложение банка / SMS / email")
+System_Boundary(scope, "Notification Platform — критичная доставка") {
+  Container(api, "Critical API", "Go / HTTP", "Принимает события, проверяет бизнес-ключ")
+  ContainerDb(db, "Critical Ledger", "PostgreSQL 17 HA", "Состояние, попытки, outbox и сроки")
+  Container(relay, "Outbox Relay", "Go", "Публикует сохранённые задания")
+  ContainerQueue(broker, "Critical Broker", "Apache Kafka 4.x", "Отдельный критичный кластер, RF=3")
+  Container(engine, "Delivery Engine", "Go / реплики", "Автомат, scheduler и адаптеры")
+  Container(receipt, "Callback API", "Go / HTTP", "Проверяет и сохраняет подтверждения")
+  Container(obs, "Наблюдаемость", "OTel / Prometheus / Grafana", "Метрики, trace и алерты")
+}
+Rel_D(source, api, "Передают событие", "HTTPS/mTLS")
+Rel_R(api, db, "Сохраняет notification + outbox", "SQL/TLS")
+Rel_U(relay, db, "Читает outbox", "SQL/TLS")
+Rel_D(relay, broker, "Публикует ID", "Kafka/TLS")
+Rel_R(broker, engine, "Передаёт задания", "Kafka/TLS")
+Rel_U(engine, db, "Читает / меняет состояние", "SQL/TLS")
+Rel_D(engine, policy, "Проверяет разрешения", "HTTPS/mTLS")
+Rel_R(engine, channels, "Отправляет / проверяет статус", "HTTPS")
+Rel_U(channels, client, "Доставляют сообщение", "Push / SMS / email")
+Rel_U(channels, receipt, "Возвращают SMS/email receipt", "HTTPS + подпись")
+Rel_L(client, receipt, "Приложение подтверждает push", "HTTPS + auth")
+Rel_L(receipt, db, "Сохраняет receipt / успех", "SQL/TLS")
+Rel_D(engine, obs, "Публикует метрики / trace", "OTLP")
+Lay_D(api, relay)
+Lay_R(db, receipt)
+Lay_R(receipt, client)
+Lay_D(receipt, channels)
+Lay_R(policy, obs)
+footer Синий: контейнер подсистемы · Серый: вне критичной подсистемы · Пунктир: область RFC\nHA — высокая доступность / RF — число копий Kafka / OTLP — протокол телеметрии
+@enduml

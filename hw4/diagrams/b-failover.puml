@@ -1,0 +1,44 @@
+@startuml
+title B — durable timer, replay и failover
+autonumber
+participant "Workflow Worker 1" as W1
+participant "Temporal Service\n+ persistence" as T
+participant "Activity Workers" as A
+database "Delivery Ledger" as DB
+participant "Каналы / клиент" as P
+participant "Workflow Worker 2" as W2
+participant "Receipt API + Relay" as C
+W1 -> T: schedule push Activity
+T -> A: push Activity Task
+A -> DB: reserve push; success guard
+A -> P: send push
+P --> A: принято, receipt нет
+A -> DB: ACCEPTED
+A -> T: Activity completed(started_at)
+T -> W1: результат Activity
+W1 -> T: timer deadline = started_at + 5 с (оставшееся время)
+note over W1: Worker 1 остановлен
+... наступает durable deadline ...
+T -> T: timer fired записан в history
+W2 -> T: poll Workflow Task
+T --> W2: history для replay
+W2 -> W2: восстановить процесс; завершённую Activity не повторять
+W2 -> T: schedule SMS Activity
+T -> A: SMS Activity Task
+A -> DB: текущие настройки + success guard + reserve SMS
+A -> P: send SMS(attempt_id)
+P --> A: принято
+A -> DB: SMS ACCEPTED
+A -> T: Activity result
+P -> C: SMS DLR
+C -> DB: receipt + signal_outbox; COMMIT
+C -> T: повторяемый Signal(receipt_id)
+T -> W2: Workflow Task с подтверждением
+W2 -> T: DELIVERED; завершить workflow
+note over A,DB
+Если Activity упала ПОСЛЕ HTTP до результата,
+возможен повтор Activity: тот же attempt ID,
+ledger/status query, без слепого нового SMS.
+Replay сам по себе не даёт exactly-once API.
+end note
+@enduml

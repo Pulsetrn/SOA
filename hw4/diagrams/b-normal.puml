@@ -1,0 +1,41 @@
+@startuml
+title B — штатный Temporal Workflow
+autonumber
+participant "Источник" as S
+participant "Critical API" as API
+database "Delivery Ledger" as DB
+participant "Start/Signal Relay" as R
+participant "Temporal Service\n+ persistence" as T
+participant "Workflow Worker" as W
+participant "Activity Worker" as A
+participant "Push / приложение" as P
+participant "Receipt API" as C
+S -> API: событие с event ID
+API -> DB: notification + start_outbox; durable COMMIT
+DB --> API: t0
+API --> S: 202 + notification_id
+R -> DB: start_outbox
+R -> T: StartWorkflow(workflow_id = notification_id)
+T --> R: started / AlreadyStarted
+R -> DB: отметить start
+W -> T: poll Workflow Task
+T --> W: history
+W -> T: schedule Send Activity + deadline
+A -> T: poll Activity Task
+T --> A: attempt_id + payload reference
+A -> DB: policy reference + reserve attempt; success guard
+A -> P: push(attempt_id)
+P --> A: принято
+A -> DB: факт ACCEPTED
+A -> T: Activity result
+P -> C: app receipt
+C -> DB: receipt + signal_outbox; COMMIT
+C --> P: 2xx
+R -> DB: signal_outbox
+R -> T: Signal(receipt_id)
+T --> R: durable accepted
+R -> DB: отметить signal
+T -> W: Workflow Task с receipt
+W -> T: dedup receipt; завершить DELIVERED
+note over A,DB: SQL защищает внешние эффекты; workflow владеет процессом
+@enduml

@@ -1,0 +1,40 @@
+@startuml
+title A — failover push → SMS и поздний receipt
+autonumber
+participant "Delivery Engine" as E
+database "PostgreSQL" as DB
+participant "Push provider" as Push
+participant "Scheduler\n(реплика Engine)" as T
+participant "Preferences" as P
+participant "SMS provider" as SMS
+participant "Клиент" as U
+participant "Callback API" as C
+E -> DB: reserve push; due_at = start + 5 с
+E -> Push: send(attempt_push)
+Push --> E: принято
+E -> DB: ACCEPTED; подтверждения нет
+note over E,Push: Если процесс упал здесь: результат может быть UNKNOWN
+... 5 секунд от начала push ...
+T -> DB: claim due_at (SKIP LOCKED); проверить success/version
+DB --> T: успеха нет; lease/version
+T -> P: проверить настройки перед SMS
+P --> T: SMS разрешён
+T -> DB: финальная проверка + reserve SMS
+DB --> T: attempt_sms
+T -> SMS: send(attempt_sms как idempotency key, если поддержан)
+SMS --> T: принято + provider_id
+T -> DB: SMS ACCEPTED; due_at = start + 10 с
+SMS -> U: SMS
+SMS -> C: положительный DLR
+C -> DB: receipt + DELIVERED + history атомарно
+C --> SMS: 2xx после commit
+Push -> U: возможный поздний push
+U -> C: позднее подтверждение push
+C -> DB: добавить receipt, сохранить общий success
+note over T,DB
+Новые попытки запрещены.
+Если success был известен до reservation,
+SMS не отправляется.
+SQL lock не устраняет окно перед внешним HTTP.
+end note
+@enduml

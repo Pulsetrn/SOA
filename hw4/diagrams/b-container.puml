@@ -1,0 +1,40 @@
+@startuml
+!pragma layout smetana
+!include <C4/C4_Container>
+LAYOUT_TOP_DOWN()
+skinparam nodesep 70
+skinparam ranksep 80
+skinparam shadowing false
+title Вариант B — C4 Container: Temporal Workflow
+System_Ext(source, "Сервисы банка", "Операция и source outbox")
+System_Ext(policy, "Настройки и контакты", "Control plane платформы")
+System_Ext(channels, "Провайдеры и клиентские каналы", "FCM/APNs · SMS · SES · приложение")
+System_Boundary(scope, "Notification Platform — критичная доставка") {
+  Container(api, "Critical API", "Go / HTTP", "Приём события и admission dedup")
+  ContainerDb(ledger, "Delivery Ledger", "PostgreSQL 17 HA", "Попытки, receipts, start/signal outbox")
+  Container(relay, "Start/Signal Relay", "Go", "Запускает процесс, передаёт receipts")
+  Container(temporal, "Temporal Service", "Temporal Server", "История, таймеры и task queues")
+  ContainerDb(store, "Temporal Persistence", "PostgreSQL 17 HA", "Отдельная БД истории процесса")
+  Container(wf, "Workflow Workers", "Go Temporal SDK", "Порядок каналов, deadline и retry")
+  Container(act, "Activity Workers", "Go / отдельные пулы", "Policy check и внешние отправки")
+  Container(cb, "Receipt API", "Go / HTTP", "Проверяет и сохраняет подтверждения")
+}
+Rel_D(source, api, "Передают событие", "HTTPS/mTLS")
+Rel_R(api, ledger, "Сохраняет admission + outbox", "SQL/TLS")
+Rel_U(relay, ledger, "Читает start/signal outbox", "SQL/TLS")
+Rel_R(relay, temporal, "Вызывает StartWorkflow / Signal", "gRPC/mTLS")
+Rel_D(temporal, store, "Сохраняет history / timers", "SQL/TLS")
+Rel_U(wf, temporal, "Запрашивают задачи / передают команды", "gRPC/mTLS")
+Rel_L(act, temporal, "Запрашивают Activities / передают результат", "gRPC/mTLS")
+Rel_U(act, ledger, "Резервируют / учитывают попытки", "SQL/TLS")
+Rel_D(act, policy, "Проверяют разрешения", "HTTPS/mTLS")
+Rel_R(act, channels, "Отправляют / проверяют статус", "HTTPS")
+Rel_U(channels, cb, "Возвращают подтверждения", "HTTPS + auth/подпись")
+Rel_L(cb, ledger, "Сохраняет receipt + outbox", "SQL/TLS")
+Lay_D(api, relay)
+Lay_R(ledger, cb)
+Lay_D(cb, act)
+Lay_R(store, wf)
+Lay_R(wf, policy)
+footer Синий: контейнер подсистемы · Серый: вне критичной подсистемы · Пунктир: область RFC\nHA — высокая доступность / SDK — библиотека Temporal / mTLS — взаимная проверка сервисов
+@enduml

@@ -1,0 +1,41 @@
+@startuml
+title A — штатная доставка push
+autonumber
+skinparam responseMessageBelowArrow true
+participant "Источник\n(source outbox)" as S
+participant "Critical API" as API
+database "PostgreSQL" as DB
+participant "Outbox Relay" as R
+queue "Kafka critical" as K
+participant "Delivery Engine" as E
+participant "Preferences" as P
+participant "Push provider" as F
+participant "Приложение" as App
+participant "Callback API" as C
+S -> API: event_id + recipient + purpose
+API -> DB: BEGIN; unique key; notification + outbox; COMMIT
+DB --> API: durable commit (t0)
+API --> S: 202 + notification_id
+R -> DB: прочитать outbox
+R -> K: publish(notification_id)
+K --> R: ack
+R -> DB: отметить публикацию
+K -> E: задача (может повториться)
+E -> P: проверить настройки/канал
+P --> E: актуальная версия, push разрешён
+E -> DB: CAS/reserve attempt; due_at = start + 5 с
+DB --> E: attempt_id + version
+E -> K: commit offset после сохранения состояния
+E -> F: push(attempt_id)
+F --> E: принято + provider_id
+E -> DB: попытка ACCEPTED, не DELIVERED
+F -> App: сообщение
+App -> C: receipt(notification_id, attempt_id)
+C -> DB: inbox dedup + success + history; COMMIT
+DB --> C: сохранено
+C --> App: 2xx
+note over E,DB
+Таймер может остаться в очереди;
+проверка успеха запрещает SMS.
+end note
+@enduml
